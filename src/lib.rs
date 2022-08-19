@@ -1,14 +1,14 @@
 // We want to store things as
 // arrays, but treat "table rows"
 // as object-like via traits.
-pub struct AliveIndividuals {
+pub struct IndividualMetadata {
     genetic_value: Vec<f64>,
     nodes: Vec<i32>,
     ploidy: usize,
     genetic_value_stride: usize,
 }
 
-impl AliveIndividuals {
+impl IndividualMetadata {
     pub fn new(ploidy: usize, genetic_value_stride: usize) -> Self {
         assert!(ploidy > 0);
         assert!(genetic_value_stride > 0);
@@ -29,7 +29,7 @@ impl AliveIndividuals {
 }
 
 struct GeneticValueIterator<'alive> {
-    alive: &'alive AliveIndividuals,
+    alive: &'alive IndividualMetadata,
     offset: usize,
 }
 
@@ -67,16 +67,31 @@ trait IndividualNodes {
     fn nodes(&self, individual: usize) -> &[i32];
 }
 
-impl IndividualGeneticValues for AliveIndividuals {
+trait IterateGeneticValues<'alive> {
+    type Output: Sized + Iterator<Item = &'alive [f64]>;
+    fn genetic_value_iterator(&'alive self) -> Self::Output;
+}
+
+impl IndividualGeneticValues for IndividualMetadata {
     fn genetic_values(&self, individual: usize) -> &[f64] {
         &self.genetic_value[individual * self.genetic_value_stride
             ..individual * self.genetic_value_stride + self.genetic_value_stride]
     }
 }
 
-impl IndividualNodes for AliveIndividuals {
+impl IndividualNodes for IndividualMetadata {
     fn nodes(&self, individual: usize) -> &[i32] {
         &self.nodes[individual * self.ploidy..individual * self.ploidy + self.ploidy]
+    }
+}
+
+impl<'alive> IterateGeneticValues<'alive> for IndividualMetadata {
+    type Output = GeneticValueIterator<'alive>;
+    fn genetic_value_iterator(&'alive self) -> Self::Output {
+        GeneticValueIterator {
+            alive: self,
+            offset: 0,
+        }
     }
 }
 
@@ -86,7 +101,7 @@ mod tests {
 
     #[test]
     fn test_add_and_fetch() {
-        let mut individuals = AliveIndividuals::new(2, 1);
+        let mut individuals = IndividualMetadata::new(2, 1);
         individuals.add_individual(&[1.0], &[1, 2]);
 
         assert_eq!(individuals.genetic_values(0), &[1.0]);
@@ -99,5 +114,7 @@ mod tests {
         for i in iter {
             assert_eq!(i, &[1.0]);
         }
+
+        assert_eq!(individuals.genetic_value_iterator().count(), 1);
     }
 }
