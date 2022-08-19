@@ -1,14 +1,14 @@
 // We want to store things as
 // arrays, but treat "table rows"
 // as object-like via traits.
-pub struct IndividualMetadata {
+pub struct DODIndividualMetadata {
     genetic_value: Vec<f64>,
     nodes: Vec<i32>,
     ploidy: usize,
     genetic_value_stride: usize,
 }
 
-impl IndividualMetadata {
+impl DODIndividualMetadata {
     pub fn new(ploidy: usize, genetic_value_stride: usize) -> Self {
         assert!(ploidy > 0);
         assert!(genetic_value_stride > 0);
@@ -29,7 +29,7 @@ impl IndividualMetadata {
 }
 
 struct GeneticValueIterator<'alive> {
-    alive: &'alive IndividualMetadata,
+    alive: &'alive DODIndividualMetadata,
     offset: usize,
 }
 
@@ -72,20 +72,20 @@ trait IterateGeneticValues<'alive> {
     fn genetic_value_iterator(&'alive self) -> Self::Output;
 }
 
-impl IndividualGeneticValues for IndividualMetadata {
+impl IndividualGeneticValues for DODIndividualMetadata {
     fn genetic_values(&self, individual: usize) -> &[f64] {
         &self.genetic_value[individual * self.genetic_value_stride
             ..individual * self.genetic_value_stride + self.genetic_value_stride]
     }
 }
 
-impl IndividualNodes for IndividualMetadata {
+impl IndividualNodes for DODIndividualMetadata {
     fn nodes(&self, individual: usize) -> &[i32] {
         &self.nodes[individual * self.ploidy..individual * self.ploidy + self.ploidy]
     }
 }
 
-impl<'alive> IterateGeneticValues<'alive> for IndividualMetadata {
+impl<'alive> IterateGeneticValues<'alive> for DODIndividualMetadata {
     type Output = GeneticValueIterator<'alive>;
     fn genetic_value_iterator(&'alive self) -> Self::Output {
         GeneticValueIterator {
@@ -101,7 +101,7 @@ mod tests {
 
     #[test]
     fn test_add_and_fetch() {
-        let mut individuals = IndividualMetadata::new(2, 1);
+        let mut individuals = DODIndividualMetadata::new(2, 1);
         individuals.add_individual(&[1.0], &[1, 2]);
 
         assert_eq!(individuals.genetic_values(0), &[1.0]);
