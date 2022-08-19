@@ -28,6 +28,28 @@ impl AliveIndividuals {
     }
 }
 
+struct GeneticValueIterator<'alive> {
+    alive: &'alive AliveIndividuals,
+    offset: usize,
+}
+
+impl<'alive> Iterator for GeneticValueIterator<'alive> {
+    type Item = &'alive [f64];
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // NOTE: may not be the most rigorous check
+        if self.offset * self.alive.genetic_value_stride + self.alive.genetic_value_stride
+            <= self.alive.genetic_value.len()
+        {
+            let i = self.offset;
+            self.offset += 1;
+            Some(self.alive.genetic_values(i))
+        } else {
+            None
+        }
+    }
+}
+
 // Not best design:
 // * implies panic if fail, etc..
 //
@@ -69,5 +91,13 @@ mod tests {
 
         assert_eq!(individuals.genetic_values(0), &[1.0]);
         assert_eq!(individuals.nodes(0), &[1, 2]);
+
+        let iter = GeneticValueIterator {
+            alive: &individuals,
+            offset: 0,
+        };
+        for i in iter {
+            assert_eq!(i, &[1.0]);
+        }
     }
 }
