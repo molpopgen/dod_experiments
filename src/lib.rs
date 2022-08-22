@@ -104,6 +104,8 @@ mod tests {
         let mut individuals = DODIndividualMetadata::new(2, 1);
         individuals.add_individual(&[1.0], &[1, 2]);
 
+        let x = &individuals as &dyn IterateGeneticValues<Output = GeneticValueIterator>;
+
         assert_eq!(individuals.genetic_values(0), &[1.0]);
         assert_eq!(individuals.nodes(0), &[1, 2]);
 
@@ -116,5 +118,32 @@ mod tests {
         }
 
         assert_eq!(individuals.genetic_value_iterator().count(), 1);
+    }
+
+    //fn iterate<'alive, T: Sized + Iterator<Item = &'alive [f64]>>(
+    //    x: &'alive dyn IterateGeneticValues<Output = T>,
+    //) {
+    //    for i in x.genetic_value_iterator() {
+    //        assert_eq!(i, &[1.0]);
+    //    }
+    //}
+
+    fn iterate<'alive, I, T>(x: &'alive I)
+    where
+        I: IterateGeneticValues<'alive, Output = T>,
+        T: Sized + Iterator<Item = &'alive [f64]>,
+    {
+        for i in x.genetic_value_iterator() {
+            assert_eq!(i, &[1.0]);
+        }
+    }
+
+    #[test]
+    fn test_object_safety() {
+        let mut individuals = DODIndividualMetadata::new(2, 1);
+        individuals.add_individual(&[1.0], &[1, 2]);
+
+        //let x = &individuals as &dyn IterateGeneticValues<Output = GeneticValueIterator>;
+        iterate(&individuals);
     }
 }
