@@ -95,6 +95,19 @@ impl<'alive> IterateGeneticValues<'alive> for DODIndividualMetadata {
     }
 }
 
+trait AsGeneticValueIterator {
+    fn as_genetic_value_iterator(&self) -> Box<dyn Iterator<Item = &[f64]> + '_>;
+}
+
+impl AsGeneticValueIterator for DODIndividualMetadata {
+    fn as_genetic_value_iterator(&self) -> Box<dyn Iterator<Item = &[f64]> + '_> {
+        Box::new(GeneticValueIterator {
+            alive: self,
+            offset: 0,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -148,5 +161,9 @@ mod tests {
         let x = &individuals as &dyn IterateGeneticValues<Output = GeneticValueIterator>;
         iterate(&individuals);
         iterate(x);
+
+        for i in individuals.as_genetic_value_iterator() {
+            assert_eq!(i, &[1.0]);
+        }
     }
 }
