@@ -120,6 +120,8 @@ mod tests {
         assert_eq!(individuals.genetic_value_iterator().count(), 1);
     }
 
+    // This is still not dynamic dispatch due to generics.
+    // It is a hybrid mish-mash, which may be okay.
     fn iterate<'alive, T: Sized + Iterator<Item = &'alive [f64]>>(
         x: &'alive dyn IterateGeneticValues<'alive, Output = T>,
     ) {
