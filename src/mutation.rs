@@ -89,6 +89,7 @@ impl DODPopulation {
         }
     }
     fn generate_offspring(&mut self, parent: usize, mutation_rate: f64) {
+        // NOTE: this is really terrible
         let parent_genome = if parent < self.alive_genomes.offsets.len() {
             if parent + 1 < self.alive_genomes.offsets.len() {
                 &self.alive_genomes.mutations
