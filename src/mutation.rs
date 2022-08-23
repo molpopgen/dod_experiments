@@ -127,6 +127,7 @@ impl DODPopulation {
         let mut last_mutation_pos = self.rng.sample(positionator);
 
         let mut parent_genome_index = 0_usize;
+        let mut nmuts = 0;
         while last_mutation_pos < self.genome_length {
             //println!("{}", last_mutation_pos);
             while parent_genome_index < parent_genome.len()
@@ -154,7 +155,9 @@ impl DODPopulation {
             };
             self.offspring_genomes.mutations.push(new_mutation_index);
             last_mutation_pos += self.rng.sample(positionator);
+            nmuts += 1;
         }
+        println!("{}", nmuts);
 
         for i in parent_genome_index..parent_genome.len() {
             self.offspring_genomes.mutations.push(parent_genome[i]);
@@ -200,11 +203,11 @@ impl StartGeneration for DODPopulation {
             }
         });
         self.mutations.count.fill(0);
-        println!(
-            "{} {}",
-            self.mutation_queue.len(),
-            self.mutations.count.len()
-        );
+        //println!(
+        //    "{} {}",
+        //    self.mutation_queue.len(),
+        //    self.mutations.count.len()
+        //);
     }
 }
 
@@ -262,7 +265,13 @@ mod test_mutation_concepts {
     #[test]
     fn test_evolve_dod() {
         let mut pop = DODPopulation::quick();
-        evolve(100, 0.5e-8, &mut pop);
+        evolve(1000, 0.5e-9, &mut pop);
+        println!(
+            "{} {} {}",
+            pop.alive_genomes.mutations.len(),
+            pop.mutations.count.len(),
+            pop.mutations.count.iter().filter(|c| **c > 0).count()
+        );
 
         // mutations cannot exist more times than there are alive individuals
         assert!(pop.mutations.count.iter().all(|c| *c <= pop.popsize));
