@@ -13,6 +13,14 @@ struct DODmutations {
     position: Vec<f64>,
 }
 
+impl DODmutations {
+    fn is_empty(&self) -> bool {
+        assert_eq!(self.count.len(), self.effect_size.len());
+        assert_eq!(self.count.len(), self.position.len());
+        self.count.is_empty()
+    }
+}
+
 struct Mutation {
     count: u32,
     effect_size: f64,
@@ -157,7 +165,16 @@ mod test_mutation_concepts {
         // HACK: this is bad design
         // pop.alive_genomes.offsets.push(0); // There is an individual w/no mutations
         pop.generate_offspring(0, 1e-8);
+        assert!(!pop.mutations.is_empty());
         pop.swap_generations();
         pop.generate_offspring(0, 1e-8);
+
+        // NOTE: there is only one genome, so we can do the following hack:
+        let sorted = pop
+            .alive_genomes
+            .mutations
+            .windows(2)
+            .all(|s| pop.mutations.position[s[0]] <= pop.mutations.position[s[1]]);
+        assert!(sorted);
     }
 }
