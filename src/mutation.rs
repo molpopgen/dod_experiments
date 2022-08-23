@@ -132,7 +132,7 @@ impl DODPopulation {
                     .push(parent_genome[parent_genome_index]);
                 parent_genome_index += 1;
             }
-            // Add new mutation
+            // Add new mutation -- this should be a "callback"/trait object
             self.mutations.position.push(last_mutation_pos);
             self.mutations.count.push(0);
             self.mutations.effect_size.push(0.0);
