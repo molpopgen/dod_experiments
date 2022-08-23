@@ -80,10 +80,12 @@ trait Mutate {
 
 struct DODPopulation {
     mutations: DODmutations,
+    mutation_queue: Vec<usize>,
     alive_genomes: DODGenomes,
     offspring_genomes: DODGenomes,
     rng: StdRng,
     genome_length: f64,
+    popsize: u32,
 }
 
 impl DODPopulation {
@@ -91,10 +93,12 @@ impl DODPopulation {
     fn quick() -> Self {
         Self {
             mutations: DODmutations::default(),
+            mutation_queue: vec![],
             alive_genomes: DODGenomes::default(),
             offspring_genomes: DODGenomes::default(),
             rng: StdRng::seed_from_u64(0),
             genome_length: 1e9,
+            popsize: 1000,
         }
     }
     fn generate_offspring(&mut self, parent: usize, mutation_rate: f64) {
@@ -117,14 +121,14 @@ impl DODPopulation {
         };
         let next_alive_offset = self.offspring_genomes.mutations.len();
 
-        println!("{}", 1.0 / mutation_rate / self.genome_length);
+        //println!("{}", 1.0 / mutation_rate / self.genome_length);
         let positionator = rand_distr::Exp::new(mutation_rate).unwrap();
 
         let mut last_mutation_pos = self.rng.sample(positionator);
 
         let mut parent_genome_index = 0_usize;
         while last_mutation_pos < self.genome_length {
-            println!("{}", last_mutation_pos);
+            //println!("{}", last_mutation_pos);
             while parent_genome_index < parent_genome.len()
                 && self.mutations.position[parent_genome[parent_genome_index]] <= last_mutation_pos
             {
@@ -134,9 +138,18 @@ impl DODPopulation {
                 parent_genome_index += 1;
             }
             // Add new mutation -- this should be a "callback"/trait object
-            self.mutations.position.push(last_mutation_pos);
-            self.mutations.count.push(0);
-            self.mutations.effect_size.push(0.0);
+            match self.mutation_queue.pop() {
+                Some(index) => {
+                    self.mutations.position[index] = last_mutation_pos;
+                    self.mutations.count[index] = 0;
+                    self.mutations.effect_size[index] = 0.0;
+                }
+                None => {
+                    self.mutations.position.push(last_mutation_pos);
+                    self.mutations.count.push(0);
+                    self.mutations.effect_size.push(0.0);
+                }
+            }
             self.offspring_genomes
                 .mutations
                 .push(self.mutations.position.len() - 1);
@@ -147,12 +160,67 @@ impl DODPopulation {
             self.offspring_genomes.mutations.push(parent_genome[i]);
         }
         self.offspring_genomes.offsets.push(next_alive_offset);
-        println!("{:?}", self.offspring_genomes);
+        //println!("{:?}", self.offspring_genomes);
     }
 
     fn swap_generations(&mut self) {
         std::mem::swap(&mut self.alive_genomes, &mut self.offspring_genomes);
         self.offspring_genomes.clear();
+    }
+}
+
+trait GenerateBirths {
+    fn births(&mut self, mutation_rate: f64);
+}
+
+trait StartGeneration {
+    fn start(&mut self);
+}
+
+trait FinishGeneration {
+    fn finish(&mut self);
+}
+
+impl GenerateBirths for DODPopulation {
+    fn births(&mut self, mutation_rate: f64) {
+        let u = rand_distr::Uniform::new(0, self.popsize);
+        for _ in 0..self.popsize {
+            let parent = self.rng.sample(u);
+            self.generate_offspring(parent as usize, mutation_rate);
+        }
+    }
+}
+
+impl StartGeneration for DODPopulation {
+    fn start(&mut self) {
+        self.mutation_queue.clear();
+        self.mutations.count.iter().enumerate().for_each(|(i, c)| {
+            if *c == 0 {
+                self.mutation_queue.push(i);
+            }
+        });
+        self.mutations.count.fill(0);
+    }
+}
+
+impl FinishGeneration for DODPopulation {
+    fn finish(&mut self) {
+        self.swap_generations();
+        self.alive_genomes
+            .mutations
+            .iter()
+            .for_each(|m| self.mutations.count[*m] += 1);
+    }
+}
+
+fn evolve<P>(ngenerations: u32, mutation_rate: f64, pop: &mut P)
+where
+    P: GenerateBirths + FinishGeneration + StartGeneration,
+{
+    for _ in 0..ngenerations {
+        pop.start();
+        pop.births(mutation_rate);
+        pop.finish();
     }
 }
 
@@ -184,5 +252,12 @@ mod test_mutation_concepts {
             .mutations
             .iter()
             .for_each(|m| pop.mutations.count[*m] += 1);
+    }
+
+    #[test]
+    fn test_evolve_dod() {
+        let mut pop = DODPopulation::quick();
+        evolve(100, 0.5e-8, &mut pop);
+        assert!(pop.mutations.count.iter().all(|c| *c <= pop.popsize));
     }
 }
