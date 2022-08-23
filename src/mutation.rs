@@ -87,6 +87,7 @@ struct DODPopulation {
 }
 
 impl DODPopulation {
+    // HACK: ::default() but not public
     fn quick() -> Self {
         Self {
             mutations: DODmutations::default(),
