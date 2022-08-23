@@ -176,5 +176,12 @@ mod test_mutation_concepts {
             .windows(2)
             .all(|s| pop.mutations.position[s[0]] <= pop.mutations.position[s[1]]);
         assert!(sorted);
+
+        // NOTE: we should be in an okay position
+        // for counts
+        pop.alive_genomes
+            .mutations
+            .iter()
+            .for_each(|m| pop.mutations.count[*m] += 1);
     }
 }
