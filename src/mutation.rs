@@ -90,8 +90,14 @@ impl DODPopulation {
     }
     fn generate_offspring(&mut self, parent: usize, mutation_rate: f64) {
         let parent_genome = if parent < self.alive_genomes.offsets.len() {
-            &self.alive_genomes.mutations
-                [self.alive_genomes.offsets[parent]..self.alive_genomes.offsets[parent + 1]]
+            if parent + 1 < self.alive_genomes.offsets.len() {
+                &self.alive_genomes.mutations
+                    [self.alive_genomes.offsets[parent]..self.alive_genomes.offsets[parent + 1]]
+            } else {
+                {
+                    &self.alive_genomes.mutations[self.alive_genomes.offsets[parent]..]
+                }
+            }
         } else {
             if !self.alive_genomes.mutations.is_empty() {
                 &self.alive_genomes.mutations[self.alive_genomes.offsets[parent]..]
