@@ -138,21 +138,21 @@ impl DODPopulation {
                 parent_genome_index += 1;
             }
             // Add new mutation -- this should be a "callback"/trait object
-            match self.mutation_queue.pop() {
+            let new_mutation_index = match self.mutation_queue.pop() {
                 Some(index) => {
                     self.mutations.position[index] = last_mutation_pos;
                     self.mutations.count[index] = 0;
                     self.mutations.effect_size[index] = 0.0;
+                    index
                 }
                 None => {
                     self.mutations.position.push(last_mutation_pos);
                     self.mutations.count.push(0);
                     self.mutations.effect_size.push(0.0);
+                    self.mutations.position.len() - 1
                 }
-            }
-            self.offspring_genomes
-                .mutations
-                .push(self.mutations.position.len() - 1);
+            };
+            self.offspring_genomes.mutations.push(new_mutation_index);
             last_mutation_pos += self.rng.sample(positionator);
         }
 
@@ -200,6 +200,11 @@ impl StartGeneration for DODPopulation {
             }
         });
         self.mutations.count.fill(0);
+        println!(
+            "{} {}",
+            self.mutation_queue.len(),
+            self.mutations.count.len()
+        );
     }
 }
 
@@ -258,6 +263,26 @@ mod test_mutation_concepts {
     fn test_evolve_dod() {
         let mut pop = DODPopulation::quick();
         evolve(100, 0.5e-8, &mut pop);
+
+        // mutations cannot exist more times than there are alive individuals
         assert!(pop.mutations.count.iter().all(|c| *c <= pop.popsize));
+        for (i, o) in pop.alive_genomes.offsets.iter().enumerate() {
+            let genome = if i < pop.alive_genomes.offsets.len() {
+                if *o < pop.alive_genomes.offsets.len() {
+                    &pop.alive_genomes.mutations[*o..pop.alive_genomes.offsets[i + 1]]
+                } else {
+                    &pop.alive_genomes.mutations[*o..]
+                }
+            } else {
+                &pop.alive_genomes.mutations[*o..]
+            };
+            // an alive genome cannot contain an extinct variant
+            assert!(genome.iter().all(|m| pop.mutations.count[*m] > 0));
+            // genomes must contain mutations sorted by position.
+            let sorted = genome
+                .windows(2)
+                .all(|s| pop.mutations.position[s[0]] <= pop.mutations.position[s[1]]);
+            assert!(sorted); //, "{:?}", genome);
+        }
     }
 }
