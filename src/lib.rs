@@ -1,3 +1,5 @@
+mod mutation;
+
 // We want to store things as
 // arrays, but treat "table rows"
 // as object-like via traits.
