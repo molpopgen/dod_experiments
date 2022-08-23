@@ -157,7 +157,7 @@ impl DODPopulation {
             last_mutation_pos += self.rng.sample(positionator);
             nmuts += 1;
         }
-        println!("{}", nmuts);
+        // println!("{}", nmuts);
 
         for i in parent_genome_index..parent_genome.len() {
             self.offspring_genomes.mutations.push(parent_genome[i]);
