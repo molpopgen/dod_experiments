@@ -38,6 +38,7 @@ struct SOAMutation {
     mutations: Vec<Mutation>,
 }
 
+#[derive(Default)]
 struct SOAMutation2 {
     mutations: Vec<Mutation2>,
     counts: Vec<u32>,
@@ -302,6 +303,113 @@ impl RcPopulation {
     }
 }
 
+struct SOAPopulation2 {
+    mutations: SOAMutation2,
+    mutation_queue: Vec<usize>,
+    alive_genomes: DODGenomes,
+    offspring_genomes: DODGenomes,
+    rng: StdRng,
+    genome_length: f64,
+    popsize: u32,
+}
+
+impl SOAPopulation2 {
+    // HACK: ::default() but not public
+    fn quick() -> Self {
+        Self {
+            mutations: SOAMutation2::default(),
+            mutation_queue: vec![],
+            alive_genomes: DODGenomes::default(),
+            offspring_genomes: DODGenomes::default(),
+            rng: StdRng::seed_from_u64(0),
+            genome_length: 1e9,
+            popsize: 1000,
+        }
+    }
+    fn generate_offspring(&mut self, parent: usize, mutation_rate: f64) {
+        // NOTE: this is really terrible
+        let parent_genome = if parent < self.alive_genomes.offsets.len() {
+            if parent + 1 < self.alive_genomes.offsets.len() {
+                &self.alive_genomes.mutations
+                    [self.alive_genomes.offsets[parent]..self.alive_genomes.offsets[parent + 1]]
+            } else {
+                {
+                    &self.alive_genomes.mutations[self.alive_genomes.offsets[parent]..]
+                }
+            }
+        } else {
+            if !self.alive_genomes.mutations.is_empty() {
+                &self.alive_genomes.mutations[self.alive_genomes.offsets[parent]..]
+            } else {
+                &[]
+            }
+        };
+        let next_alive_offset = self.offspring_genomes.mutations.len();
+
+        //println!("{}", 1.0 / mutation_rate / self.genome_length);
+        let positionator = rand_distr::Exp::new(mutation_rate).unwrap();
+
+        let mut last_mutation_pos = self.rng.sample(positionator);
+
+        let mut parent_genome_index = 0_usize;
+        while last_mutation_pos < self.genome_length {
+            //println!("{}", last_mutation_pos);
+            while parent_genome_index < parent_genome.len()
+                && self.mutations.mutations[parent_genome[parent_genome_index]].position
+                    <= last_mutation_pos
+            {
+                self.offspring_genomes
+                    .mutations
+                    .push(parent_genome[parent_genome_index]);
+                parent_genome_index += 1;
+            }
+            // Add new mutation -- this should be a "callback"/trait object
+            let new_mutation_index = match self.mutation_queue.pop() {
+                Some(index) => {
+                    self.mutations.mutations[index].position = last_mutation_pos;
+                    self.mutations.mutations[index].effect_size = 0.0;
+                    self.mutations.counts[index] = 0;
+                    index
+                }
+                None => {
+                    let mutation = Mutation2 {
+                        position: last_mutation_pos,
+                        effect_size: 0.0,
+                    };
+                    self.mutations.mutations.push(mutation);
+                    self.mutations.counts.push(0);
+                    self.mutations.mutations.len() - 1
+                }
+            };
+            self.offspring_genomes.mutations.push(new_mutation_index);
+            last_mutation_pos += self.rng.sample(positionator);
+        }
+        // println!("{}", nmuts);
+
+        for i in parent_genome_index..parent_genome.len() {
+            self.offspring_genomes.mutations.push(parent_genome[i]);
+        }
+        self.offspring_genomes.offsets.push(next_alive_offset);
+
+        #[cfg(debug_assertions)]
+        {
+            let sorted = self.offspring_genomes.mutations[next_alive_offset..]
+                .windows(2)
+                .all(|s| {
+                    self.mutations.mutations[s[0]].position
+                        <= self.mutations.mutations[s[1]].position
+                });
+            assert!(sorted);
+        }
+        //println!("{:?}", self.offspring_genomes);
+    }
+
+    fn swap_generations(&mut self) {
+        std::mem::swap(&mut self.alive_genomes, &mut self.offspring_genomes);
+        self.offspring_genomes.clear();
+    }
+}
+
 trait GenerateBirths {
     fn births(&mut self, mutation_rate: f64);
 }
@@ -375,6 +483,38 @@ impl StartGeneration for RcPopulation {
 impl FinishGeneration for RcPopulation {
     fn finish(&mut self) {
         self.swap_generations();
+    }
+}
+
+impl GenerateBirths for SOAPopulation2 {
+    fn births(&mut self, mutation_rate: f64) {
+        let u = rand_distr::Uniform::new(0, self.popsize);
+        for _ in 0..self.popsize {
+            let parent = self.rng.sample(u);
+            self.generate_offspring(parent as usize, mutation_rate);
+        }
+    }
+}
+
+impl StartGeneration for SOAPopulation2 {
+    fn start(&mut self) {
+        self.mutation_queue.clear();
+        self.mutations.counts.iter().enumerate().for_each(|(i, c)| {
+            if *c == 0 {
+                self.mutation_queue.push(i);
+            }
+        });
+        self.mutations.counts.fill(0);
+    }
+}
+
+impl FinishGeneration for SOAPopulation2 {
+    fn finish(&mut self) {
+        self.swap_generations();
+        self.alive_genomes
+            .mutations
+            .iter()
+            .for_each(|m| self.mutations.counts[*m] += 1);
     }
 }
 
@@ -490,6 +630,33 @@ mod test_mutation_concepts {
     fn bench_evolve_dod_very_low_mutrate(b: &mut Bencher) {
         b.iter(|| {
             let mut pop = DODPopulation::quick();
+            let mutrate = 1e-4 / pop.genome_length;
+            evolve(500, mutrate, &mut pop);
+        });
+    }
+
+    #[bench]
+    fn bench_evolve_soa2_high_mutrate(b: &mut Bencher) {
+        b.iter(|| {
+            let mut pop = SOAPopulation2::quick();
+            let mutrate = 0.5 / pop.genome_length;
+            evolve(500, mutrate, &mut pop);
+        });
+    }
+
+    #[bench]
+    fn bench_evolve_soa2_low_mutrate(b: &mut Bencher) {
+        b.iter(|| {
+            let mut pop = SOAPopulation2::quick();
+            let mutrate = 0.1 / pop.genome_length;
+            evolve(500, mutrate, &mut pop);
+        });
+    }
+
+    #[bench]
+    fn bench_evolve_soa2_very_low_mutrate(b: &mut Bencher) {
+        b.iter(|| {
+            let mut pop = SOAPopulation2::quick();
             let mutrate = 1e-4 / pop.genome_length;
             evolve(500, mutrate, &mut pop);
         });
