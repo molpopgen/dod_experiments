@@ -265,16 +265,14 @@ impl RcPopulation {
                 effect_size: 0.0,
                 position: last_mutation_pos,
             });
-            let new_mutation_index = match self.mutation_queue.pop() {
+            match self.mutation_queue.pop() {
                 Some(index) => {
                     self.mutations.mutations[index] = m.clone();
-                    index
                 }
                 None => {
                     self.mutations.mutations.push(m.clone());
-                    self.mutations.mutations.len() - 1
                 }
-            };
+            }
             self.offspring_genomes.mutations.push(m);
             last_mutation_pos += self.rng.sample(positionator);
             nmuts += 1;
