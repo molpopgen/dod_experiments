@@ -261,14 +261,19 @@ impl RcPopulation {
         let mut nmuts = 0;
         while last_mutation_pos < self.genome_length {
             //println!("{}", last_mutation_pos);
-            while parent_genome_index < parent_genome.len()
-                && parent_genome[parent_genome_index].position <= last_mutation_pos
-            {
-                self.offspring_genomes
-                    .mutations
-                    .push(parent_genome[parent_genome_index].clone());
-                parent_genome_index += 1;
-            }
+            //while parent_genome_index < parent_genome.len()
+            //    && parent_genome[parent_genome_index].position <= last_mutation_pos
+            //{
+            //    self.offspring_genomes
+            //        .mutations
+            //        .push(parent_genome[parent_genome_index].clone());
+            //    parent_genome_index += 1;
+            //}
+            parent_genome_index += parent_genome[parent_genome_index..]
+                .iter()
+                .take_while(|i| i.position <= last_mutation_pos)
+                .map(|i| self.offspring_genomes.mutations.push(i.clone()))
+                .count();
             // Add new mutation -- this should be a "callback"/trait object
             let m = Rc::new(Mutation2 {
                 effect_size: 0.0,
@@ -288,11 +293,14 @@ impl RcPopulation {
         }
         // println!("{}", nmuts);
 
-        for i in parent_genome_index..parent_genome.len() {
-            self.offspring_genomes
-                .mutations
-                .push(parent_genome[i].clone());
-        }
+        parent_genome[parent_genome_index..]
+            .iter()
+            .for_each(|k| self.offspring_genomes.mutations.push(k.clone()));
+        //for i in parent_genome_index..parent_genome.len() {
+        //    self.offspring_genomes
+        //        .mutations
+        //        .push(parent_genome[i].clone());
+        //}
         self.offspring_genomes.offsets.push(next_alive_offset);
 
         #[cfg(debug_assertions)]
@@ -362,15 +370,20 @@ impl SOAPopulation2 {
         let mut parent_genome_index = 0_usize;
         while last_mutation_pos < self.genome_length {
             //println!("{}", last_mutation_pos);
-            while parent_genome_index < parent_genome.len()
-                && self.mutations.mutations[parent_genome[parent_genome_index]].position
-                    <= last_mutation_pos
-            {
-                self.offspring_genomes
-                    .mutations
-                    .push(parent_genome[parent_genome_index]);
-                parent_genome_index += 1;
-            }
+            //while parent_genome_index < parent_genome.len()
+            //    && self.mutations.mutations[parent_genome[parent_genome_index]].position
+            //        <= last_mutation_pos
+            //{
+            //    self.offspring_genomes
+            //        .mutations
+            //        .push(parent_genome[parent_genome_index]);
+            //    parent_genome_index += 1;
+            //}
+            parent_genome_index += parent_genome[parent_genome_index..]
+                .iter()
+                .take_while(|i| self.mutations.mutations[**i].position <= last_mutation_pos)
+                .map(|i| self.offspring_genomes.mutations.push(*i))
+                .count();
             // Add new mutation -- this should be a "callback"/trait object
             let new_mutation_index = match self.mutation_queue.pop() {
                 Some(index) => {
@@ -394,9 +407,12 @@ impl SOAPopulation2 {
         }
         // println!("{}", nmuts);
 
-        for i in parent_genome_index..parent_genome.len() {
-            self.offspring_genomes.mutations.push(parent_genome[i]);
-        }
+        parent_genome[parent_genome_index..]
+            .iter()
+            .for_each(|k| self.offspring_genomes.mutations.push(*k));
+        //for i in parent_genome_index..parent_genome.len() {
+        //    self.offspring_genomes.mutations.push(parent_genome[i]);
+        //}
         self.offspring_genomes.offsets.push(next_alive_offset);
 
         #[cfg(debug_assertions)]
