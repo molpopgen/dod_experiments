@@ -291,7 +291,7 @@ mod test_mutation_concepts {
             let sorted = genome
                 .windows(2)
                 .all(|s| pop.mutations.position[s[0]] <= pop.mutations.position[s[1]]);
-            assert!(sorted); //, "{:?}", genome);
+            assert!(sorted, "failed on genome {}", i); //, "{:?}", genome);
         }
     }
 }
