@@ -163,6 +163,14 @@ impl DODPopulation {
             self.offspring_genomes.mutations.push(parent_genome[i]);
         }
         self.offspring_genomes.offsets.push(next_alive_offset);
+
+        #[cfg(debug_assertions)]
+        {
+            let sorted = self.offspring_genomes.mutations[next_alive_offset..]
+                .windows(2)
+                .all(|s| self.mutations.position[s[0]] <= self.mutations.position[s[1]]);
+            assert!(sorted);
+        }
         //println!("{:?}", self.offspring_genomes);
     }
 
