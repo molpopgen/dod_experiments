@@ -285,7 +285,7 @@ mod test_mutation_concepts {
         assert!(pop.mutations.count.iter().all(|c| *c <= pop.popsize));
         for (i, o) in pop.alive_genomes.offsets.iter().enumerate() {
             let genome = if i < pop.alive_genomes.offsets.len() {
-                if *o < pop.alive_genomes.offsets.len() {
+                if i + 1 < pop.alive_genomes.offsets.len() {
                     &pop.alive_genomes.mutations[*o..pop.alive_genomes.offsets[i + 1]]
                 } else {
                     &pop.alive_genomes.mutations[*o..]
