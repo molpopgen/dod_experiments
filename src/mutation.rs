@@ -151,14 +151,19 @@ impl DODPopulation {
         let mut nmuts = 0;
         while last_mutation_pos < self.genome_length {
             //println!("{}", last_mutation_pos);
-            while parent_genome_index < parent_genome.len()
-                && self.mutations.position[parent_genome[parent_genome_index]] <= last_mutation_pos
-            {
-                self.offspring_genomes
-                    .mutations
-                    .push(parent_genome[parent_genome_index]);
-                parent_genome_index += 1;
-            }
+            //while parent_genome_index < parent_genome.len()
+            //    && self.mutations.position[parent_genome[parent_genome_index]] <= last_mutation_pos
+            //{
+            //    self.offspring_genomes
+            //        .mutations
+            //        .push(parent_genome[parent_genome_index]);
+            //    parent_genome_index += 1;
+            //}
+            parent_genome_index += parent_genome[parent_genome_index..]
+                .iter()
+                .take_while(|i| self.mutations.position[**i] <= last_mutation_pos)
+                .map(|i| self.offspring_genomes.mutations.push(*i))
+                .count();
             // Add new mutation -- this should be a "callback"/trait object
             let new_mutation_index = match self.mutation_queue.pop() {
                 Some(index) => {
@@ -180,9 +185,12 @@ impl DODPopulation {
         }
         // println!("{}", nmuts);
 
-        for i in parent_genome_index..parent_genome.len() {
-            self.offspring_genomes.mutations.push(parent_genome[i]);
-        }
+        parent_genome[parent_genome_index..]
+            .iter()
+            .for_each(|k| self.offspring_genomes.mutations.push(*k));
+        //for i in parent_genome_index..parent_genome.len() {
+        //    self.offspring_genomes.mutations.push(parent_genome[i]);
+        //}
         self.offspring_genomes.offsets.push(next_alive_offset);
 
         #[cfg(debug_assertions)]
