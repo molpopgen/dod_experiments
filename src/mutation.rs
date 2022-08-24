@@ -265,7 +265,7 @@ mod test_mutation_concepts {
     #[test]
     fn test_evolve_dod() {
         let mut pop = DODPopulation::quick();
-        evolve(1000, 0.5e-9, &mut pop);
+        evolve(10, 0.5e-9, &mut pop);
         println!(
             "{} {} {}",
             pop.alive_genomes.mutations.len(),
