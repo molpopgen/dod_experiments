@@ -1,3 +1,5 @@
+#![feature(test)]
+
 mod mutation;
 
 // We want to store things as

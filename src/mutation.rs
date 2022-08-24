@@ -1,6 +1,7 @@
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
+use std::rc::Rc;
 extern crate test;
 
 trait IncrementCount {
@@ -42,6 +43,11 @@ struct SOAMutation2 {
     counts: Vec<u32>,
 }
 
+#[derive(Default)]
+struct RcMutation {
+    mutations: Vec<Rc<Mutation2>>,
+}
+
 impl IncrementCount for DODmutations {
     fn increment(&mut self, index: usize) {
         self.count[index] += 1;
@@ -67,6 +73,19 @@ struct DODGenomes {
 }
 
 impl DODGenomes {
+    fn clear(&mut self) {
+        self.mutations.clear();
+        self.offsets.clear();
+    }
+}
+
+#[derive(Default)]
+struct RcGenomes {
+    mutations: Vec<Rc<Mutation2>>,
+    offsets: Vec<usize>,
+}
+
+impl RcGenomes {
     fn clear(&mut self) {
         self.mutations.clear();
         self.offsets.clear();
@@ -170,6 +189,110 @@ impl DODPopulation {
             let sorted = self.offspring_genomes.mutations[next_alive_offset..]
                 .windows(2)
                 .all(|s| self.mutations.position[s[0]] <= self.mutations.position[s[1]]);
+            assert!(sorted);
+        }
+        //println!("{:?}", self.offspring_genomes);
+    }
+
+    fn swap_generations(&mut self) {
+        std::mem::swap(&mut self.alive_genomes, &mut self.offspring_genomes);
+        self.offspring_genomes.clear();
+    }
+}
+
+struct RcPopulation {
+    mutations: RcMutation,
+    mutation_queue: Vec<usize>,
+    alive_genomes: RcGenomes,
+    offspring_genomes: RcGenomes,
+    rng: StdRng,
+    genome_length: f64,
+    popsize: u32,
+}
+
+impl RcPopulation {
+    // HACK: ::default() but not public
+    fn quick() -> Self {
+        Self {
+            mutations: RcMutation::default(),
+            mutation_queue: vec![],
+            alive_genomes: RcGenomes::default(),
+            offspring_genomes: RcGenomes::default(),
+            rng: StdRng::seed_from_u64(0),
+            genome_length: 1e9,
+            popsize: 1000,
+        }
+    }
+    fn generate_offspring(&mut self, parent: usize, mutation_rate: f64) {
+        // NOTE: this is really terrible
+        let parent_genome = if parent < self.alive_genomes.offsets.len() {
+            if parent + 1 < self.alive_genomes.offsets.len() {
+                &self.alive_genomes.mutations
+                    [self.alive_genomes.offsets[parent]..self.alive_genomes.offsets[parent + 1]]
+            } else {
+                {
+                    &self.alive_genomes.mutations[self.alive_genomes.offsets[parent]..]
+                }
+            }
+        } else {
+            if !self.alive_genomes.mutations.is_empty() {
+                &self.alive_genomes.mutations[self.alive_genomes.offsets[parent]..]
+            } else {
+                &[]
+            }
+        };
+        let next_alive_offset = self.offspring_genomes.mutations.len();
+
+        //println!("{}", 1.0 / mutation_rate / self.genome_length);
+        let positionator = rand_distr::Exp::new(mutation_rate).unwrap();
+
+        let mut last_mutation_pos = self.rng.sample(positionator);
+
+        let mut parent_genome_index = 0_usize;
+        let mut nmuts = 0;
+        while last_mutation_pos < self.genome_length {
+            //println!("{}", last_mutation_pos);
+            while parent_genome_index < parent_genome.len()
+                && parent_genome[parent_genome_index].position <= last_mutation_pos
+            {
+                self.offspring_genomes
+                    .mutations
+                    .push(parent_genome[parent_genome_index].clone());
+                parent_genome_index += 1;
+            }
+            // Add new mutation -- this should be a "callback"/trait object
+            let m = Rc::new(Mutation2 {
+                effect_size: 0.0,
+                position: last_mutation_pos,
+            });
+            let new_mutation_index = match self.mutation_queue.pop() {
+                Some(index) => {
+                    self.mutations.mutations[index] = m.clone();
+                    index
+                }
+                None => {
+                    self.mutations.mutations.push(m.clone());
+                    self.mutations.mutations.len() - 1
+                }
+            };
+            self.offspring_genomes.mutations.push(m);
+            last_mutation_pos += self.rng.sample(positionator);
+            nmuts += 1;
+        }
+        // println!("{}", nmuts);
+
+        for i in parent_genome_index..parent_genome.len() {
+            self.offspring_genomes
+                .mutations
+                .push(parent_genome[i].clone());
+        }
+        self.offspring_genomes.offsets.push(next_alive_offset);
+
+        #[cfg(debug_assertions)]
+        {
+            let sorted = self.offspring_genomes.mutations[next_alive_offset..]
+                .windows(2)
+                .all(|s| s[0].position <= s[1].position);
             assert!(sorted);
         }
         //println!("{:?}", self.offspring_genomes);
