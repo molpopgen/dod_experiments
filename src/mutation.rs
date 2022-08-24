@@ -351,6 +351,33 @@ impl FinishGeneration for DODPopulation {
     }
 }
 
+impl GenerateBirths for RcPopulation {
+    fn births(&mut self, mutation_rate: f64) {
+        let u = rand_distr::Uniform::new(0, self.popsize);
+        for _ in 0..self.popsize {
+            let parent = self.rng.sample(u);
+            self.generate_offspring(parent as usize, mutation_rate);
+        }
+    }
+}
+
+impl StartGeneration for RcPopulation {
+    fn start(&mut self) {
+        self.mutation_queue.clear();
+        for (i, m) in self.mutations.mutations.iter().enumerate() {
+            if Rc::strong_count(m) == 1 {
+                self.mutation_queue.push(i);
+            }
+        }
+    }
+}
+
+impl FinishGeneration for RcPopulation {
+    fn finish(&mut self) {
+        self.swap_generations();
+    }
+}
+
 fn evolve<P>(ngenerations: u32, mutation_rate: f64, pop: &mut P)
 where
     P: GenerateBirths + FinishGeneration + StartGeneration,
@@ -426,6 +453,21 @@ mod test_mutation_concepts {
         }
     }
 
+    #[test]
+    fn test_evolve_rc() {
+        let mut pop = RcPopulation::quick();
+        evolve(10, 0.5e-9, &mut pop);
+        println!(
+            "{} {}",
+            pop.alive_genomes.mutations.len(),
+            pop.mutations
+                .mutations
+                .iter()
+                .filter(|m| Rc::strong_count(m) > 1)
+                .count()
+        );
+    }
+
     #[bench]
     fn bench_evolve_dod_high_mutrate(b: &mut Bencher) {
         b.iter(|| {
@@ -448,6 +490,33 @@ mod test_mutation_concepts {
     fn bench_evolve_dod_very_low_mutrate(b: &mut Bencher) {
         b.iter(|| {
             let mut pop = DODPopulation::quick();
+            let mutrate = 1e-4 / pop.genome_length;
+            evolve(500, mutrate, &mut pop);
+        });
+    }
+
+    #[bench]
+    fn bench_evolve_rc_high_mutrate(b: &mut Bencher) {
+        b.iter(|| {
+            let mut pop = RcPopulation::quick();
+            let mutrate = 0.5 / pop.genome_length;
+            evolve(500, mutrate, &mut pop);
+        });
+    }
+
+    #[bench]
+    fn bench_evolve_rc_low_mutrate(b: &mut Bencher) {
+        b.iter(|| {
+            let mut pop = RcPopulation::quick();
+            let mutrate = 0.1 / pop.genome_length;
+            evolve(500, mutrate, &mut pop);
+        });
+    }
+
+    #[bench]
+    fn bench_evolve_rc_very_low_mutrate(b: &mut Bencher) {
+        b.iter(|| {
+            let mut pop = RcPopulation::quick();
             let mutrate = 1e-4 / pop.genome_length;
             evolve(500, mutrate, &mut pop);
         });
