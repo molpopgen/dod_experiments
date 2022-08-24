@@ -1,6 +1,7 @@
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
+extern crate test;
 
 trait IncrementCount {
     fn increment(&mut self, index: usize);
@@ -243,6 +244,7 @@ where
 #[cfg(test)]
 mod test_mutation_concepts {
     use super::*;
+    use test::Bencher;
 
     #[test]
     fn quick_test() {
@@ -301,5 +303,32 @@ mod test_mutation_concepts {
                 .all(|s| pop.mutations.position[s[0]] <= pop.mutations.position[s[1]]);
             assert!(sorted, "failed on genome {}", i); //, "{:?}", genome);
         }
+    }
+
+    #[bench]
+    fn bench_evolve_dod_high_mutrate(b: &mut Bencher) {
+        b.iter(|| {
+            let mut pop = DODPopulation::quick();
+            let mutrate = 0.5 / pop.genome_length;
+            evolve(500, mutrate, &mut pop);
+        });
+    }
+
+    #[bench]
+    fn bench_evolve_dod_low_mutrate(b: &mut Bencher) {
+        b.iter(|| {
+            let mut pop = DODPopulation::quick();
+            let mutrate = 0.1 / pop.genome_length;
+            evolve(500, mutrate, &mut pop);
+        });
+    }
+
+    #[bench]
+    fn bench_evolve_dod_very_low_mutrate(b: &mut Bencher) {
+        b.iter(|| {
+            let mut pop = DODPopulation::quick();
+            let mutrate = 1e-4 / pop.genome_length;
+            evolve(500, mutrate, &mut pop);
+        });
     }
 }
